@@ -1,0 +1,28 @@
+# Data files — too large for GitHub; download from Kaggle and run notebook to regenerate
+tsla_2019_2022.csv
+tsla_optimized.parquet
+tsla_with_iv.parquet
+
+# Notebook backups and intermediate versions
+Project - Copy.ipynb
+Project - Cleaned.ipynb
+Project - github ready.ipynb
+
+# Internal / utility files
+clean_notebook.py
+claude.md.txt
+
+# Reference material
+Lectures/
+Suggested Studies/
+old datasets/
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
