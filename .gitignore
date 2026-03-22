@@ -12,6 +12,8 @@ Project - github ready.ipynb
 clean_notebook.py
 claude.md.txt
 presentation.md
+build_presentation.py
+build_executive_summary.py
 
 # Reference material
 Lectures/
