@@ -20,22 +20,22 @@ Black-Scholes assumes a single, constant volatility for all strikes and maturiti
 | Step | Description |
 |------|-------------|
 | **Data Cleaning** | Filters 2.6M raw quotes down to 647K+ liquid, tradeable options using bid, spread, volume, and DTE criteria |
-| **IV Computation** | Inverts Black-Scholes for each option using a hybrid Newton-Bisection solver (638K IVs computed) |
-| **IV Surface** | 3D visualization of IV across moneyness and time to expiration vs. the BS flat-vol assumption |
+| **IV Computation** | Inverts Black-Scholes independently for calls and puts using a hybrid Newton-Bisection solver (638K call IVs, 494K put IVs computed), then validates the two sides against put-call parity |
+| **IV Surface** | 3D visualization of IV (genuine OTM put + OTM call) across moneyness and time to expiration vs. the BS flat-vol assumption |
 | **Regime Comparison** | Side-by-side surface comparison: S&P 500 inclusion eve (Dec 2020) vs. post-crash year-end (Dec 2022) |
-| **Volatility Smile** | 2D slice at fixed maturity showing the classic put skew |
+| **Volatility Smile** | 2D slice at fixed maturity showing the classic put skew, plotted from real OTM put and OTM call quotes |
 | **Skew & Term Structure** | Decomposing the surface into its two key market signals |
-| **Event Study** | TSLA's August 2020 stock split — tracking how the smile evolved as retail FOMO created a rare reverse skew |
+| **Event Study** | TSLA's August 2020 stock split — tracking how the put-call skew compressed (but never inverted) as retail FOMO peaked |
 
 ---
 
 ## Key Results
 
-- **Average IV: 66.70%** across 638K liquid TSLA options (2019–2022)
-- The IV surface is **not flat** — OTM puts carry significantly higher IV (crash insurance premium)
-- **Put skew dominates** in normal market conditions; the 2020 stock split produced a rare **reverse skew** driven by aggressive call buying
+- **Average call-side IV: 66.70%** across 638K liquid TSLA options (2019–2022); put IV averages 71.70% on the 494K rows where a liquid put quote was also available
+- The IV surface is **not flat** — OTM puts carry higher IV than OTM calls (crash insurance premium), confirmed directly by computing both sides independently and cross-checking against put-call parity (correlation 0.98, median gap ~4.4 vol points)
+- **Put skew dominates** in every regime examined here — including TSLA's most speculative retail-driven episode. During the Aug 2020 stock split run-up, aggressive OTM-call buying compressed the put–call IV gap to its narrowest point on record in this sample (+3.5 vol points on Aug 28), but put IV never fell below call IV
 - **Term structure** is typically downward sloping — near-term uncertainty higher than long-term
-- The **2020 vs. 2022 regime comparison** shows how the surface shape (not just level) encodes market sentiment
+- The **2020 vs. 2022 regime comparison** shows the put-call skew gap was actually similar (even slightly wider in 2020) despite very different market conditions — the *level* of IV differs by regime far more than the *shape* does
 
 ---
 
@@ -53,7 +53,8 @@ Project/
 │   ├── skew.png
 │   ├── term_structure.png
 │   ├── smile_aug28.png
-│   └── smile_evolution.png
+│   ├── smile_evolution.png
+│   └── putcall_parity.png
 └── README.md
 ```
 
@@ -101,9 +102,9 @@ The raw dataset is available on Kaggle:
 **IV Solver — Hybrid Newton-Bisection**
 - Newton-Raphson for fast convergence in well-behaved regions
 - Automatic fallback to bisection when vega < 1e-6 or Newton step escapes bounds
-- Arbitrage pre-filter: rejects prices outside `(S - Ke^{-rT}, S)`
+- Arbitrage pre-filter: rejects prices outside `(S - Ke^{-rT}, S)` for calls, `(max(0, Ke^{-rT} - S), Ke^{-rT})` for puts
 - Tolerance: 1e-8 | Max iterations: 100
-- Fully vectorized over NumPy arrays — processes 647K options efficiently
+- Fully vectorized over NumPy arrays — run independently on `c_mid` and `p_mid`, processing 647K call quotes (and the subset of liquid put quotes among them) per pass
 
 **Liquidity Filter**
 - Call bid > $0.50 (no penny options)
@@ -111,16 +112,17 @@ The raw dataset is available on Kaggle:
 - |Strike distance| < 40% of spot (smile region only)
 - Call volume > 0 (active trading)
 - Bid-ask spread < 20% of mid (rejects stale quotes)
+- The put side additionally requires its own bid > $0.50, volume > 0, and spread < 20% before its IV is trusted
 
 ---
 
 ## Key Insights
 
 1. **Black-Scholes is empirically wrong** — the market prices a smile, not a flat surface
-2. **Skew encodes fear** — the put premium is a direct measure of crash risk appetite
+2. **Skew encodes fear** — the put premium is a direct measure of crash risk appetite, verified here from real put quotes rather than inferred from calls
 3. **Term structure encodes timing** — elevated short-term IV signals imminent expected stress
-4. **The surface is regime-dependent** — its shape shifts with market sentiment, not just its level
-5. **Events distort the surface** — the 2020 split created a textbook reverse skew via retail call buying
+4. **The surface is regime-dependent** — its *level* shifts with market sentiment; the put-call *shape* was more stable across regimes than expected
+5. **Events distort the surface, but don't necessarily invert it** — the 2020 split compressed the put-call skew to its narrowest point in this sample without flipping it, and IV kept climbing (not collapsing) through the post-split session as the rally continued
 
 ---
 
